@@ -5,6 +5,7 @@
 """
 
 import json
+import random
 from functools import cache
 from pathlib import Path
 
@@ -43,11 +44,14 @@ def search_glossary(query: str) -> str:
     # 「r」のような短い別名が何にでも当たらないよう、名前側が短いものは除く
     partial = [
         e for e in glossary
-        if e not in exact and any(q in n or (len(n) >= 3 and n in q) for n in _names(e))
+        if e not in exact
+        and any(q in n or (len(n) >= 3 and n in q) for n in _names(e))
     ]
     in_definition = [
         e for e in glossary
-        if e not in exact and e not in partial and q in _normalize(e["definition"])
+        if e not in exact
+        and e not in partial
+        and q in _normalize(e["definition"])
     ]
     hits = (exact + partial + in_definition)[:MAX_RESULTS]
 
@@ -77,3 +81,26 @@ def get_lecture_summary(lecture: int) -> str:
         available = sorted(p.stem for p in (DATA_DIR / "lectures").glob("*.md"))
         return f"第{lecture}回の要点はまだありません。用意されている回: {', '.join(available)}"
     return path.read_text(encoding="utf-8")
+
+
+def make_quiz(lecture: int) -> str:
+    """指定した回の用語から1つ選び、確認問題と答えを返す。
+
+    「第2回の確認問題を出して」のように、
+    復習用の問題を求められたときに使う。
+    """
+    entries = [
+        entry for entry in load_glossary()
+        if entry["lecture"] == lecture
+    ]
+    if not entries:
+        return f"第{lecture}回の用語は見つかりませんでした。"
+
+    entry = random.choice(entries)
+    return json.dumps(
+        {
+            "question": f"「{entry['term']}」の意味は？",
+            "answer": entry["definition"],
+        },
+        ensure_ascii=False,
+    )
